@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0f172a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Peso Tracker</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f9; --surface:#ffffff; --surface-2:#fafbfc;
+    --ink:#1e293b; --ink-soft:#64748b; --ink-faint:#94a3b8;
+    --line:#e7ebf2; --grid:#eef2f7;
+    --accent:#2563eb; --accent-soft:#dbeafe;
+    --good:#16a34a; --good-soft:#dcfce7;
+    --warn:#d97706; --warn-soft:#fef3c7;
+    --bad:#dc2626; --bad-soft:#fee2e2;
+    --violet:#7c3aed;
+    --shadow:0 1px 2px rgba(16,24,40,.05),0 1px 3px rgba(16,24,40,.04);
+    --shadow-lg:0 10px 30px rgba(16,24,40,.12);
+    --r:16px; --maxw:760px;
+    --nav-h:62px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.45; -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 14px}
+
+  /* ---------- Header ---------- */
+  header.app{
+    position:sticky;top:0;z-index:30;background:rgba(244,246,249,.85);backdrop-filter:blur(12px);
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;max-width:var(--maxw);margin:0 auto;
+  }
+  .brand h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.02em}
+  .brand .sub{font-size:11.5px;color:var(--ink-soft)}
+  .icon-btn{
+    border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);
+    width:42px;height:42px;border-radius:12px;font-size:19px;cursor:pointer;
+    display:grid;place-items:center;box-shadow:var(--shadow);transition:.15s;flex:none;
+  }
+  .icon-btn:active{transform:scale(.94)}
+
+  /* ---------- Tabs / sections ---------- */
+  .tab-section{display:none;animation:fade .2s ease}
+  .tab-section.active{display:block}
+  @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .section-pad{padding-top:6px;padding-bottom:18px}
+
+  /* ---------- Quick add ---------- */
+  .quickadd{
+    background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;border-radius:var(--r);
+    padding:15px;box-shadow:var(--shadow-lg);margin:6px 0 14px;
+  }
+  .qa-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+  .qa-title{font-size:12px;font-weight:700;opacity:.85;letter-spacing:.04em;text-transform:uppercase}
+  .qa-now{font-size:11.5px;opacity:.6}
+  .qa-fields{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .qa-field label{display:block;font-size:10px;opacity:.6;margin-bottom:5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+  .qa-input{position:relative}
+  .qa-input input{
+    width:100%;border:none;border-radius:11px;padding:13px 40px 13px 13px;font-size:21px;font-weight:800;
+    background:rgba(255,255,255,.1);color:#fff;outline:none;transition:.15s;font-variant-numeric:tabular-nums;
+  }
+  .qa-input input:focus{background:rgba(255,255,255,.18);box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+  .qa-input input::placeholder{color:rgba(255,255,255,.38);font-weight:700}
+  .qa-input .unit{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.5;font-weight:700}
+  .qa-meta{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+  .qa-meta input{
+    width:100%;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px;font-size:14px;
+    background:rgba(255,255,255,.06);color:#fff;outline:none;
+  }
+  .qa-meta input:focus{border-color:rgba(255,255,255,.4)}
+  .qa-stamp{margin-top:11px;font-size:12px;opacity:.72;text-align:center}
+  .qa-stamp b{opacity:1;font-weight:800}
+  .qa-extra{display:none;margin-top:4px}
+  .qa-extra.show{display:block}
+  .qa-xl{display:block;font-size:10px;opacity:.6;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:5px}
+  .qa-noteinput{
+    width:100%;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:10px;font-size:14px;
+    background:rgba(255,255,255,.06);color:#fff;outline:none;margin-top:9px;
+  }
+  .qa-noteinput:focus{border-color:rgba(255,255,255,.4)}
+  .qa-row{display:flex;gap:9px;margin-top:11px}
+  .qa-save{flex:1;border:none;border-radius:11px;padding:14px;background:var(--accent);color:#fff;font-size:16px;font-weight:800;cursor:pointer;transition:.15s}
+  .qa-save:active{transform:scale(.98)}
+  .qa-more{flex:none;border:1px solid rgba(255,255,255,.18);background:transparent;color:#fff;border-radius:11px;padding:0 15px;font-size:13px;font-weight:600;cursor:pointer;opacity:.85}
+  .qa-hint{text-align:center;font-size:12px;opacity:.65;margin-top:9px;min-height:15px}
+
+  /* ---------- KPIs ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:14px}
+  .kpi{
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;
+    box-shadow:var(--shadow);display:flex;flex-direction:column;gap:3px;min-height:86px;justify-content:center;
+  }
+  .kpi .k-label{font-size:10px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .kpi .k-value{font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+  .kpi .k-value small{font-size:12px;font-weight:600;color:var(--ink-soft)}
+  .kpi .k-sub{font-size:11px;color:var(--ink-soft);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:10.5px;font-weight:700;line-height:1.5;white-space:nowrap}
+  .pill.good{background:var(--good-soft);color:var(--good)}
+  .pill.warn{background:var(--warn-soft);color:var(--warn)}
+  .pill.bad{background:var(--bad-soft);color:var(--bad)}
+  .pill.flat{background:#eef2f7;color:var(--ink-soft)}
+  .pill.accent{background:var(--accent-soft);color:var(--accent)}
+
+  /* ---------- Cards ---------- */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:15px;box-shadow:var(--shadow);margin-bottom:14px}
+  .card-title{font-size:15px;font-weight:800;letter-spacing:-.01em;margin:0}
+  .card-takeaway{font-size:12.5px;color:var(--ink-soft);margin:3px 0 12px;line-height:1.5}
+  .card-takeaway b{color:var(--ink);font-weight:700}
+  .chart-box{position:relative;height:240px}
+  .chart-box.short{height:165px}
+  .chart-box.bars{height:185px}
+
+  /* ---------- Goal bar ---------- */
+  .goalbar-track{position:relative;height:32px;background:var(--grid);border-radius:10px;overflow:hidden;margin-top:4px}
+  .goalbar-fill{position:absolute;left:0;top:0;bottom:0;border-radius:10px;transition:width .5s ease;min-width:2px}
+  .goal-now{position:absolute;top:50%;right:6px;transform:translateY(-50%);font-size:11.5px;font-weight:800;color:#fff;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+  .goalbar-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);margin-top:6px;font-weight:700}
+
+  /* ---------- Segmented ---------- */
+  .seg{display:inline-flex;background:var(--grid);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{border:none;background:transparent;color:var(--ink-soft);font-size:11.5px;font-weight:700;padding:6px 10px;border-radius:8px;cursor:pointer;transition:.12s}
+  .seg button.active{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .row-between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+  /* ---------- Today entries / lists ---------- */
+  .today-banner{background:var(--accent-soft);border:1px solid #c7dbfe;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .today-banner .tb-main{font-size:14px;font-weight:700;color:#1e40af}
+  .today-banner .tb-sub{font-size:12px;color:#3b5bb5;margin-top:2px}
+  .entry-row{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--grid);cursor:pointer}
+  .entry-row:last-child{border-bottom:none}
+  .entry-row:active{background:var(--surface-2)}
+  .entry-time{flex:none;width:54px;font-size:13px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+  .entry-mid{flex:1;min-width:0}
+  .entry-w{font-size:15px;font-weight:800}
+  .entry-meta{font-size:11px;color:var(--ink-soft);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:1px}
+  .chip{display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;background:var(--grid);color:var(--ink-soft)}
+  .chip.dot::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+  .entry-arrow{flex:none;color:var(--ink-faint);font-size:15px}
+  .day-group{margin-bottom:6px}
+  .day-head{display:flex;align-items:baseline;justify-content:space-between;padding:10px 4px 4px;position:sticky;top:0}
+  .day-head .dh-date{font-size:13px;font-weight:800}
+  .day-head .dh-sum{font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .empty{color:var(--ink-soft);font-size:13px;text-align:center;padding:26px 8px;line-height:1.6}
+
+  /* ---------- Events ---------- */
+  .event-card{border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:10px;background:var(--surface);position:relative;overflow:hidden}
+  .event-card .ev-bar{position:absolute;left:0;top:0;bottom:0;width:5px}
+  .event-card .ev-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px}
+  .event-card .ev-title{font-size:14px;font-weight:800;display:flex;align-items:center;gap:7px}
+  .event-card .ev-range{font-size:11.5px;color:var(--ink-soft)}
+  .event-card .ev-note{font-size:12px;color:var(--ink-soft);margin-top:5px;line-height:1.5}
+  .event-card .ev-impact{margin-top:7px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .ev-legend{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+
+  /* ---------- Insight box ---------- */
+  .insight{display:flex;gap:9px;align-items:flex-start;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;margin-top:11px}
+  .insight .ic{flex:none;font-size:16px;line-height:1.3}
+  .insight .it{font-size:12.5px;color:var(--ink);line-height:1.5}
+  .insight .it b{font-weight:800}
+
+  /* ---------- Bottom nav ---------- */
+  nav.bottom{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-top:1px solid var(--line);
+    height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);
+    display:flex;justify-content:space-around;align-items:stretch;
+  }
+  nav.bottom button{
+    flex:1;border:none;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    color:var(--ink-faint);font-size:10px;font-weight:700;cursor:pointer;transition:.12s;padding:6px 2px;
+  }
+  nav.bottom button .ni{font-size:20px;line-height:1}
+  nav.bottom button.active{color:var(--accent)}
+  nav.bottom button:active{transform:scale(.93)}
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(3px);display:none;align-items:flex-end;justify-content:center;z-index:60}
+  .modal-backdrop.open{display:flex}
+  .modal{background:var(--surface);width:100%;max-width:var(--maxw);border-radius:22px 22px 0 0;padding:20px 16px calc(24px + env(safe-area-inset-bottom));max-height:90vh;overflow-y:auto;animation:slideup .25s ease}
+  @media(min-width:560px){.modal-backdrop{align-items:center}.modal{border-radius:22px;max-height:88vh}}
+  @keyframes slideup{from{transform:translateY(40px)}to{transform:translateY(0)}}
+  .modal h2{font-size:17px;margin:0 0 3px}
+  .modal .modal-sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 16px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px}
+  .field input,.field select,.field textarea{
+    width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px;outline:none;transition:.15s;background:var(--surface-2);color:var(--ink);font-family:inherit;
+  }
+  .field textarea{min-height:62px;resize:vertical}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px var(--accent-soft)}
+  .field .hint{font-size:11px;color:var(--ink-soft);margin-top:4px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .btn{border:none;border-radius:11px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;transition:.15s;width:100%}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-ghost{background:var(--grid);color:var(--ink)}
+  .btn-danger-ghost{background:transparent;color:var(--bad);border:1px solid var(--bad-soft)}
+  .btn:active{transform:scale(.99)}
+  .modal-actions{display:flex;gap:9px;margin-top:6px}
+  .divider{height:1px;background:var(--line);margin:16px 0}
+  .mini-note{font-size:11.5px;color:var(--ink-soft);line-height:1.5}
+  .add-event-btn{width:100%;border:1.5px dashed var(--line);background:var(--surface);color:var(--accent);border-radius:13px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:14px}
+  .add-event-btn:active{background:var(--accent-soft)}
+
+  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 18px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:700;opacity:0;pointer-events:none;transition:.25s;z-index:100;box-shadow:var(--shadow-lg)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .footer-note{text-align:center;font-size:10.5px;color:var(--ink-faint);margin:4px 0 8px}
+  .sync-badge{width:10px;height:10px;border-radius:50%;background:#94a3b8;display:inline-block;flex:none;transition:.3s}
+  .sync-badge.synced{background:#16a34a;box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+  .sync-badge.offline{background:#d97706;box-shadow:0 0 0 3px rgba(217,119,6,.15)}
+  .sync-badge.local{background:#94a3b8}
+  #spaceLink{font-size:12px;font-family:ui-monospace,monospace;color:var(--ink-soft)}
+
+  @media(min-width:560px){
+    .kpis{grid-template-columns:repeat(4,1fr)}
+    .chart-box{height:270px}
+  }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">
+    <h1 id="brandTitle">Mi peso, bajo control</h1>
+    <div class="sub" id="brandSub">Disciplina diaria · interés compuesto</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:9px">
+    <span id="syncBadge" class="sync-badge local" title="Estado de sincronización"></span>
+    <button class="icon-btn" id="openSettings" aria-label="Ajustes">⚙︎</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ TAB: INICIO ============ -->
+  <section class="tab-section active section-pad" id="tab-inicio">
+    <div class="quickadd">
+      <div class="qa-top">
+        <span class="qa-title">Nueva medición</span>
+        <span class="qa-now" id="qaNow"></span>
+      </div>
+      <div class="qa-fields">
+        <div class="qa-field">
+          <label>Peso</label>
+          <div class="qa-input"><input id="inWeight" type="number" inputmode="decimal" step="0.1" placeholder="00.0" /><span class="unit">kg</span></div>
+        </div>
+        <div class="qa-field">
+          <label>Abdomen <span style="opacity:.6">(opc.)</span></label>
+          <div class="qa-input"><input id="inWaist" type="number" inputmode="decimal" step="0.1" placeholder="00.0" /><span class="unit">cm</span></div>
+        </div>
+      </div>
+      <div class="qa-stamp" id="qaStamp"></div>
+      <div class="qa-extra" id="qaExtra">
+        <div class="qa-meta">
+          <div><label class="qa-xl">Fecha</label><input id="inDate" type="date" /></div>
+          <div><label class="qa-xl">Hora</label><input id="inTime" type="time" /></div>
+        </div>
+        <input id="inNote" type="text" maxlength="80" placeholder="Nota: en ayunas, post-entreno, después de comer…" class="qa-noteinput" />
+      </div>
+      <div class="qa-row">
+        <button class="qa-save" id="btnSave">Guardar medición</button>
+        <button class="qa-more" id="btnMore">＋ ajustar</button>
+      </div>
+      <div class="qa-hint" id="qaHint"></div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="card" id="goalCard">
+      <h2 class="card-title">Camino a tu meta</h2>
+      <p class="card-takeaway" id="goalTakeaway">—</p>
+      <div class="goalbar-track"><div class="goalbar-fill" id="goalFill"><span class="goal-now" id="goalNow"></span></div></div>
+      <div class="goalbar-labels"><span id="goalStartLbl">Inicio</span><span id="goalTargetLbl">Meta</span></div>
+    </div>
+
+    <div class="card">
+      <div class="row-between" style="margin-bottom:8px">
+        <h2 class="card-title">Mediciones de hoy</h2>
+        <span class="mini-note" id="todayCount"></span>
+      </div>
+      <div id="todayBannerWrap"></div>
+      <div id="todayList"></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: ANÁLISIS ============ -->
+  <section class="tab-section section-pad" id="tab-analisis">
+    <div class="card">
+      <div class="row-between">
+        <h2 class="card-title">Tendencia de peso</h2>
+        <div class="seg" id="rangeSeg">
+          <button data-range="30" class="active">30d</button>
+          <button data-range="90">90d</button>
+          <button data-range="all">Todo</button>
+        </div>
+      </div>
+      <p class="card-takeaway" id="weightTakeaway">—</p>
+      <div class="chart-box"><canvas id="weightChart"></canvas></div>
+      <div class="ev-legend" id="evLegend"></div>
+      <div class="seg" id="metricSeg" style="margin-top:11px">
+        <button data-metric="avg" class="active">Promedio del día</button>
+        <button data-metric="first">1ª del día</button>
+        <button data-metric="min">Mínimo</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Abdomen (cm)</h2>
+      <p class="card-takeaway" id="waistTakeaway">—</p>
+      <div class="chart-box short"><canvas id="waistChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">¿A qué hora pesas más?</h2>
+      <p class="card-takeaway">Promedio de peso por franja horaria. Útil para estandarizar cuándo te mides.</p>
+      <div class="chart-box bars"><canvas id="periodChart"></canvas></div>
+      <div id="periodInsight"></div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Patrón por día de la semana</h2>
+      <p class="card-takeaway">Diferencia de peso respecto a tu promedio, por día. Revela el efecto del fin de semana.</p>
+      <div class="chart-box bars"><canvas id="weekdayChart"></canvas></div>
+      <div id="weekdayInsight"></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: EVENTOS ============ -->
+  <section class="tab-section section-pad" id="tab-eventos">
+    <button class="add-event-btn" id="btnAddEvent">＋ Registrar evento</button>
+    <div class="card" style="background:var(--surface-2)">
+      <p class="mini-note"><b>¿Para qué sirven?</b> Marca días o rangos con contexto (viaje, exceso social, dieta, enfermedad, entreno fuerte, estrés). Aparecen como bandas sobre tu gráfico y calculo su <b>impacto</b> en el peso, para que entiendas <i>por qué</i> se movió la balanza.</p>
+    </div>
+    <div id="eventsList"></div>
+  </section>
+
+  <!-- ============ TAB: HISTORIAL ============ -->
+  <section class="tab-section section-pad" id="tab-historial">
+    <div class="card">
+      <div class="row-between" style="margin-bottom:6px">
+        <h2 class="card-title">Historial completo</h2>
+        <span class="mini-note" id="histCount"></span>
+      </div>
+      <div id="historyList"></div>
+    </div>
+  </section>
+
+  <p class="footer-note">Datos guardados en este dispositivo · listo para conectar a Supabase</p>
+</div>
+
+<!-- ============ BOTTOM NAV ============ -->
+<nav class="bottom" id="bottomNav">
+  <button data-tab="inicio" class="active"><span class="ni">⊕</span>Inicio</button>
+  <button data-tab="analisis"><span class="ni">📈</span>Análisis</button>
+  <button data-tab="eventos"><span class="ni">📌</span>Eventos</button>
+  <button data-tab="historial"><span class="ni">☰</span>Historial</button>
+</nav>
+
+<!-- ============ MODAL: AJUSTES ============ -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h2>Ajustes y objetivos</h2>
+    <p class="modal-sub">Tus números base alimentan IMC, semáforos y la barra de progreso.</p>
+    <div class="grid2">
+      <div class="field"><label>Peso inicial (kg)</label><input id="setStart" type="number" inputmode="decimal" step="0.1" placeholder="95" /><div class="hint">Punto de partida</div></div>
+      <div class="field"><label>Peso objetivo (kg)</label><input id="setTarget" type="number" inputmode="decimal" step="0.1" placeholder="78" /><div class="hint">Tu meta</div></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Altura (cm)</label><input id="setHeight" type="number" inputmode="decimal" step="0.5" placeholder="175" /><div class="hint">Para el IMC</div></div>
+      <div class="field"><label>Peso de alerta (kg)</label><input id="setAlert" type="number" inputmode="decimal" step="0.1" placeholder="82" /><div class="hint">Línea roja</div></div>
+    </div>
+    <div class="divider"></div>
+    <p class="mini-note" style="margin-bottom:8px"><b>Sincronización en la nube.</b> <span id="syncText">—</span></p>
+    <div class="field"><label>Tu link privado — ábrelo en el celular para ver los mismos datos</label><input id="spaceLink" type="text" readonly onclick="this.select()" /><div class="hint">Incluye tu clave de espacio (#k). Trátalo como una contraseña: quien tenga este link ve y edita tus datos.</div></div>
+    <div class="modal-actions"><button class="btn btn-ghost" id="btnCopyLink">Copiar link</button><button class="btn btn-ghost" id="btnSyncNow">Sincronizar ahora</button></div>
+
+    <div class="divider"></div>
+    <p class="mini-note" style="margin-bottom:10px"><b>Datos.</b> Respalda o migra tu información.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnExport">Exportar JSON</button>
+      <button class="btn btn-ghost" id="btnImport">Importar JSON</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none" />
+    <div style="margin-top:10px"><button class="btn btn-danger-ghost" id="btnReset">Borrar todos los datos</button></div>
+    <div class="divider"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="btnSaveSettings">Guardar ajustes</button>
+      <button class="btn btn-ghost" id="btnCloseSettings">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EDITAR MEDICIÓN ============ -->
+<div class="modal-backdrop" id="entryModal">
+  <div class="modal">
+    <h2 id="entryModalTitle">Editar medición</h2>
+    <p class="modal-sub">Corrige o elimina este registro.</p>
+    <div class="grid2">
+      <div class="field"><label>Peso (kg)</label><input id="emWeight" type="number" inputmode="decimal" step="0.1" /></div>
+      <div class="field"><label>Abdomen (cm)</label><input id="emWaist" type="number" inputmode="decimal" step="0.1" placeholder="opcional" /></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Fecha</label><input id="emDate" type="date" /></div>
+      <div class="field"><label>Hora</label><input id="emTime" type="time" /></div>
+    </div>
+    <div class="field"><label>Nota</label><input id="emNote" type="text" maxlength="80" placeholder="contexto…" /></div>
+    <div class="modal-actions"><button class="btn btn-primary" id="btnSaveEntry">Guardar</button><button class="btn btn-ghost" id="btnCancelEntry">Cancelar</button></div>
+    <div style="margin-top:10px"><button class="btn btn-danger-ghost" id="btnDeleteEntry">Eliminar medición</button></div>
+  </div>
+</div>
+
+<!-- ============ MODAL: EVENTO ============ -->
+<div class="modal-backdrop" id="eventModal">
+  <div class="modal">
+    <h2 id="eventModalTitle">Registrar evento</h2>
+    <p class="modal-sub">Un contexto que ayude a explicar el peso de esos días.</p>
+    <div class="field"><label>Nombre</label><input id="evLabel" type="text" maxlength="60" placeholder="Ej. Viaje a Lima, Cumpleaños, Gripe…" /></div>
+    <div class="field"><label>Categoría</label><select id="evCat"></select></div>
+    <div class="grid2">
+      <div class="field"><label>Desde</label><input id="evStart" type="date" /></div>
+      <div class="field"><label>Hasta <span style="opacity:.6">(opc.)</span></label><input id="evEnd" type="date" /><div class="hint">Vacío = un solo día</div></div>
+    </div>
+    <div class="field"><label>Nota</label><textarea id="evNote" maxlength="200" placeholder="Detalle libre…"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-primary" id="btnSaveEvent">Guardar evento</button><button class="btn btn-ghost" id="btnCancelEvent">Cancelar</button></div>
+    <div style="margin-top:10px"><button class="btn btn-danger-ghost" id="btnDeleteEvent" style="display:none">Eliminar evento</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CAPA DE DATOS (Store v2) — interfaz estable, hoy localStorage.
+   Para Supabase: reescribir SOLO estos métodos (async). La UI no cambia.
+   entry = {id, date:'YYYY-MM-DD', time:'HH:MM', weight, waist, note, ts}
+   event = {id, label, category, start:'YYYY-MM-DD', end:'YYYY-MM-DD'|null, note, ts}
+   ============================================================ */
+// Config Supabase. El publishable key es público POR DISEÑO; la seguridad la dan
+// la RLS + tu "clave de espacio" (token en el #hash del link, nunca en el repo).
+const SB_CONFIG={ url:'https://rocfrkqpjzgihrvyzizc.supabase.co', key:'sb_publishable_0pab4USyBJ8g5xDTr27Izg_hTlKMbwv' };
+
+const Store = (() => {
+  const EK='pt_entries_v2', VK='pt_events_v1', SK='pt_settings_v1', OLD='pt_entries_v1',
+        QK='pt_queue', SPK='pt_space', ASK='pt_active_space', MGK='pt_migrated';
+  const DEF_SET={start:null,target:null,height:null,alert:null};
+  const uid=()=> (self.crypto&&crypto.randomUUID)?crypto.randomUUID():('id'+Date.now()+Math.random().toString(16).slice(2));
+  const _r=(k,f)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):f;}catch(e){return f;}};
+  const _w=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(e){return false;}};
+  const _raw=k=>{try{return localStorage.getItem(k);}catch(e){return null;}};
+  const _wr=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
+
+  // ---- Clave de espacio (capability key) ----
+  function resolveSpace(){
+    const m=(location.hash||'').match(/[#&]k=([A-Za-z0-9_\-]+)/);
+    let k=m?m[1]:null;
+    if(k)_wr(SPK,k); else k=_raw(SPK);
+    if(!k){ k=uid().replace(/-/g,''); _wr(SPK,k); }
+    return k;
+  }
+  const SPACE=resolveSpace();
+  // Si el dispositivo cambió de espacio, limpia el cache local (pertenece a otro espacio)
+  (function spaceGuard(){const a=_raw(ASK);if(a&&a!==SPACE){[EK,VK,SK,QK,MGK].forEach(k=>localStorage.removeItem(k));}_wr(ASK,SPACE);})();
+
+  // Migración v1 -> v2 (datos locales previos)
+  (function migrate(){
+    if(localStorage.getItem(EK)) return;
+    const old=_r(OLD,null);
+    if(old&&Array.isArray(old)&&old.length)_w(EK, old.map(e=>({id:uid(),date:e.date,time:'08:00',weight:e.weight,waist:e.waist??null,note:'',ts:e.ts||Date.now()})));
+  })();
+
+  // ---- Cache en memoria (render sincrónico) ----
+  const key=e=> e.date+'T'+(e.time||'00:00');
+  let cache={ entries:_r(EK,[]), events:_r(VK,[]), settings:{...DEF_SET,..._r(SK,{})} };
+  const persist=()=>{_w(EK,cache.entries);_w(VK,cache.events);_w(SK,cache.settings);};
+
+  // ---- Cola de operaciones (sync diferido) ----
+  let queue=_r(QK,[]);
+  const saveQueue=()=>_w(QK,queue);
+  const enqueue=op=>{queue.push(op);saveQueue();flush();};
+
+  // ---- Cliente Supabase ----
+  let sb=null, onChange=null, syncing=false, lastStatus='local';
+  const setOnChange=fn=>{onChange=fn;};
+  const cloudReady=()=>!!sb;
+  const status=()=>cloudReady()?lastStatus:'local';
+  function initCloud(){
+    if(sb) return;
+    if(window.supabase && SB_CONFIG.url && SB_CONFIG.key){
+      try{ sb=window.supabase.createClient(SB_CONFIG.url,SB_CONFIG.key,{global:{headers:{'x-space-key':SPACE}},auth:{persistSession:false}}); }catch(e){ sb=null; }
+    }
+  }
+  // mapeos cliente <-> db
+  const eToDb=e=>({id:e.id,space_key:SPACE,entry_date:e.date,entry_time:e.time||null,weight:e.weight??null,waist:e.waist??null,note:e.note||null});
+  const eFromDb=r=>({id:r.id,date:r.entry_date,time:r.entry_time||'',weight:r.weight==null?null:Number(r.weight),waist:r.waist==null?null:Number(r.waist),note:r.note||'',ts:Date.parse(r.created_at)||Date.now()});
+  const vToDb=v=>({id:v.id,space_key:SPACE,label:v.label||null,category:v.category||null,start_date:v.start,end_date:v.end||null,note:v.note||null});
+  const vFromDb=r=>({id:r.id,label:r.label||'',category:r.category||'otro',start:r.start_date,end:r.end_date||null,note:r.note||'',ts:Date.parse(r.created_at)||Date.now()});
+  const sToDb=s=>({space_key:SPACE,start_weight:s.start,target_weight:s.target,height_cm:s.height,alert_weight:s.alert,updated_at:new Date().toISOString()});
+  const sFromDb=r=>({start:r.start_weight,target:r.target_weight,height:r.height_cm,alert:r.alert_weight});
+
+  async function flush(){
+    if(!sb||syncing) return queue.length===0;
+    if(!queue.length) return true;
+    syncing=true;
+    try{
+      while(queue.length){
+        const op=queue[0]; let res;
+        if(op.op==='upsert') res=await sb.from(op.table).upsert(op.row);
+        else if(op.op==='delete') res=await sb.from(op.table).delete().eq('id',op.id);
+        else if(op.op==='upsert_settings') res=await sb.from('weight_settings').upsert(op.row,{onConflict:'space_key'});
+        if(res&&res.error) throw res.error;
+        queue.shift(); saveQueue();
+      }
+      lastStatus='synced'; return true;
+    }catch(e){ lastStatus='offline'; return false; }
+    finally{ syncing=false; if(onChange)onChange(); }
+  }
+  async function pull(){
+    if(!sb) return false;
+    try{
+      const [e,v,s]=await Promise.all([
+        sb.from('weight_entries').select('*'),
+        sb.from('weight_events').select('*'),
+        sb.from('weight_settings').select('*').maybeSingle()
+      ]);
+      if(e.error||v.error) throw (e.error||v.error);
+      cache.entries=(e.data||[]).map(eFromDb);
+      cache.events=(v.data||[]).map(vFromDb);
+      cache.settings={...DEF_SET, ...((s&&s.data)?sFromDb(s.data):{})};
+      persist(); lastStatus='synced'; if(onChange)onChange(); return true;
+    }catch(err){ lastStatus='offline'; return false; }
+  }
+  async function sync(){
+    initCloud();
+    if(!sb){ lastStatus='local'; if(onChange)onChange(); return; }
+    if(!_raw(MGK)){ // primera vez en este espacio: empuja lo local al cloud
+      cache.entries.forEach(e=>queue.push({op:'upsert',table:'weight_entries',row:eToDb(e)}));
+      cache.events.forEach(v=>queue.push({op:'upsert',table:'weight_events',row:vToDb(v)}));
+      if(Object.values(cache.settings).some(x=>x!=null)) queue.push({op:'upsert_settings',row:sToDb(cache.settings)});
+      saveQueue(); _wr(MGK,'1');
+    }
+    const ok=await flush();
+    if(ok) await pull(); else if(onChange) onChange();
+  }
+
+  // ---- API pública (sincrónica sobre cache) ----
+  function getEntries(){return cache.entries.slice().sort((a,b)=> key(a)<key(b)?-1:key(a)>key(b)?1:0);}
+  function addEntry(e){e.id=e.id||uid();cache.entries.push(e);persist();enqueue({op:'upsert',table:'weight_entries',row:eToDb(e)});return e;}
+  function updateEntry(id,patch){const i=cache.entries.findIndex(x=>x.id===id);if(i>=0){cache.entries[i]={...cache.entries[i],...patch};persist();enqueue({op:'upsert',table:'weight_entries',row:eToDb(cache.entries[i])});}return cache.entries[i];}
+  function deleteEntry(id){cache.entries=cache.entries.filter(x=>x.id!==id);persist();enqueue({op:'delete',table:'weight_entries',id});}
+
+  function getEvents(){return cache.events.slice().sort((a,b)=> a.start<b.start?1:a.start>b.start?-1:0);}
+  function addEvent(ev){ev.id=ev.id||uid();cache.events.push(ev);persist();enqueue({op:'upsert',table:'weight_events',row:vToDb(ev)});return ev;}
+  function updateEvent(id,patch){const i=cache.events.findIndex(x=>x.id===id);if(i>=0){cache.events[i]={...cache.events[i],...patch};persist();enqueue({op:'upsert',table:'weight_events',row:vToDb(cache.events[i])});}return cache.events[i];}
+  function deleteEvent(id){cache.events=cache.events.filter(x=>x.id!==id);persist();enqueue({op:'delete',table:'weight_events',id});}
+
+  function getSettings(){return{...DEF_SET,...cache.settings};}
+  function saveSettings(s){cache.settings={...DEF_SET,...s};persist();enqueue({op:'upsert_settings',row:sToDb(cache.settings)});return getSettings();}
+
+  function exportAll(){return{version:2,exportedAt:new Date().toISOString(),space:SPACE,settings:getSettings(),entries:getEntries(),events:getEvents()};}
+  function importAll(o){
+    if(o&&Array.isArray(o.entries))cache.entries=o.entries;
+    if(o&&Array.isArray(o.events))cache.events=o.events;
+    if(o&&o.settings)cache.settings={...DEF_SET,...o.settings};
+    persist();
+    cache.entries.forEach(e=>queue.push({op:'upsert',table:'weight_entries',row:eToDb(e)}));
+    cache.events.forEach(v=>queue.push({op:'upsert',table:'weight_events',row:vToDb(v)}));
+    queue.push({op:'upsert_settings',row:sToDb(cache.settings)}); saveQueue(); flush();
+  }
+  function clearAll(){
+    if(sb){try{sb.from('weight_entries').delete().eq('space_key',SPACE);sb.from('weight_events').delete().eq('space_key',SPACE);sb.from('weight_settings').delete().eq('space_key',SPACE);}catch(e){}}
+    cache={entries:[],events:[],settings:{...DEF_SET}};
+    [EK,VK,SK,QK].forEach(k=>localStorage.removeItem(k)); queue=[];
+  }
+  const spaceKey=()=>SPACE;
+
+  return {getEntries,addEntry,updateEntry,deleteEntry,getEvents,addEvent,updateEvent,deleteEvent,getSettings,saveSettings,exportAll,importAll,clearAll,sync,setOnChange,status,cloudReady,spaceKey};
+})();
+
+/* ============================================================ UTILIDADES ============================================================ */
+const $=s=>document.querySelector(s);
+const fmt1=n=>(n==null||isNaN(n))?'—':(Math.round(n*10)/10).toFixed(1);
+const fmtSign=n=>(n>0?'+':'')+fmt1(n);
+const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:null;
+const pad=n=>('0'+n).slice(-2);
+function nowParts(){const d=new Date();return{date:d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()),time:pad(d.getHours())+':'+pad(d.getMinutes())};}
+const todayISO=()=>nowParts().date;
+const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const DOW=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+function dObj(iso){const[y,m,d]=iso.split('-').map(Number);return new Date(y,m-1,d);}
+function prettyDate(iso){const d=dObj(iso);return DOW[d.getDay()]+' '+d.getDate()+' '+MESES[d.getMonth()];}
+function shortDate(iso){const d=dObj(iso);return d.getDate()+' '+MESES[d.getMonth()];}
+function periodOf(time){const h=parseInt((time||'00:00').split(':')[0],10);if(h<12)return{id:'man',label:'Mañana',color:'#f59e0b'};if(h<18)return{id:'tar',label:'Tarde',color:'#0ea5e9'};return{id:'noc',label:'Noche',color:'#6366f1'};}
+function bmi(w,h){if(!w||!h)return null;const m=h/100;return w/(m*m);}
+function bmiClass(b){if(b==null)return{label:'—',cls:'flat'};if(b<18.5)return{label:'Bajo',cls:'warn'};if(b<25)return{label:'Saludable',cls:'good'};if(b<30)return{label:'Sobrepeso',cls:'warn'};return{label:'Obesidad',cls:'bad'};}
+function movingAvg(vals,w){const o=[];for(let i=0;i<vals.length;i++){let s=0,c=0;for(let j=Math.max(0,i-w+1);j<=i;j++){if(vals[j]!=null){s+=vals[j];c++;}}o.push(c?s/c:null);}return o;}
+function hexA(hex,a){const h=hex.replace('#','');return`rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1900);}
+
+const CATS=[
+  {id:'exceso',label:'Social / Exceso',color:'#f59e0b'},
+  {id:'dieta',label:'Dieta estricta',color:'#16a34a'},
+  {id:'viaje',label:'Viaje',color:'#0ea5e9'},
+  {id:'ejercicio',label:'Ejercicio intenso',color:'#8b5cf6'},
+  {id:'enfermedad',label:'Enfermedad',color:'#ef4444'},
+  {id:'estres',label:'Estrés / poco sueño',color:'#ec4899'},
+  {id:'otro',label:'Otro',color:'#64748b'},
+];
+const CATMAP=Object.fromEntries(CATS.map(c=>[c.id,c]));
+
+/* Agregación diaria (varias mediciones por día -> una serie) */
+function dailyAgg(entries){
+  const byDate={};
+  entries.forEach(e=>{if(e.weight==null)return;(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  return Object.keys(byDate).sort().map(date=>{
+    const arr=byDate[date].slice().sort((a,b)=>(a.time||'')<(b.time||'')?-1:1);
+    const ws=arr.map(e=>e.weight);
+    return{date,count:arr.length,avg:mean(ws),first:ws[0],last:ws[ws.length-1],min:Math.min(...ws),max:Math.max(...ws),entries:arr};
+  });
+}
+function dailySeries(daily,metric){return daily.map(d=>({x:d.date,y:d[metric]}));}
+
+/* ============================================================ ESTADO UI ============================================================ */
+let weightChart,waistChart,periodChart,weekdayChart;
+let currentRange=30, currentMetric='avg', currentTab='inicio';
+let editingEntryId=null, editingEventId=null;
+
+/* ============================================================ INICIO ============================================================ */
+function renderInicio(){
+  const entries=Store.getEntries(), s=Store.getSettings();
+  const withW=entries.filter(e=>e.weight!=null);
+  const last=withW[withW.length-1];
+  const current=last?last.weight:null;
+  const daily=dailyAgg(entries);
+
+  // KPIs
+  const deltaGoal=(current!=null&&s.target!=null)?current-s.target:null;
+  const trend7=trendValue(daily,7);
+  const b=bmi(current,s.height), bc=bmiClass(b);
+  const kpis=[];
+  kpis.push(`<div class="kpi"><span class="k-label">Peso actual</span><span class="k-value">${fmt1(current)}<small> kg</small></span><span class="k-sub">${last?shortDate(last.date)+' · '+last.time:'sin datos'}</span></div>`);
+  let gp='<span class="pill flat">define meta</span>';
+  if(deltaGoal!=null)gp=deltaGoal<=0?'<span class="pill good">¡meta lograda!</span>':`<span class="pill warn">faltan ${fmt1(deltaGoal)} kg</span>`;
+  kpis.push(`<div class="kpi"><span class="k-label">A la meta</span><span class="k-value">${s.target!=null?fmt1(s.target):'—'}<small> kg</small></span><span class="k-sub">${gp}</span></div>`);
+  let tp='<span class="pill flat">—</span>',tl='—';
+  if(trend7!=null){if(trend7<-0.05){tp=`<span class="pill good">▼ ${fmt1(Math.abs(trend7))} kg</span>`;tl='Bajando';}else if(trend7>0.05){tp=`<span class="pill bad">▲ ${fmt1(trend7)} kg</span>`;tl='Subiendo';}else{tp='<span class="pill flat">estable</span>';tl='Estable';}}
+  kpis.push(`<div class="kpi"><span class="k-label">Tendencia 7d</span><span class="k-value" style="font-size:18px">${tl}</span><span class="k-sub">${tp}</span></div>`);
+  kpis.push(`<div class="kpi"><span class="k-label">IMC</span><span class="k-value">${b!=null?fmt1(b):'—'}</span><span class="k-sub"><span class="pill ${bc.cls}">${bc.label}</span></span></div>`);
+  $('#kpis').innerHTML=kpis.join('');
+
+  renderGoal(withW,daily,s);
+  renderTodayList(entries);
+}
+
+function trendValue(daily,w){
+  if(daily.length<2)return null;
+  const vals=daily.map(d=>d.avg);
+  const ma=movingAvg(vals,w);
+  const lastAvg=ma[ma.length-1];
+  const prevAvg=ma[Math.max(0,ma.length-1-w)];
+  if(lastAvg==null||prevAvg==null)return null;
+  return lastAvg-prevAvg;
+}
+
+function renderGoal(withW,daily,s){
+  const current=withW.length?withW[withW.length-1].weight:null;
+  const start=s.start!=null?s.start:(daily.length?daily[0].avg:null);
+  const target=s.target;
+  if(start==null||target==null||current==null){
+    $('#goalTakeaway').innerHTML='Configura <b>peso inicial</b> y <b>objetivo</b> en Ajustes ⚙︎ para activar la barra.';
+    $('#goalFill').style.width='0%';$('#goalNow').textContent='';
+    $('#goalStartLbl').textContent='Inicio';$('#goalTargetLbl').textContent='Meta';return;
+  }
+  const total=start-target, done=start-current;
+  let pct=total!==0?(done/total)*100:0; pct=Math.max(0,Math.min(100,pct));
+  let color='var(--accent)';
+  if(current<=target)color='var(--good)';else if(s.alert!=null&&current>=s.alert)color='var(--bad)';
+  $('#goalFill').style.width=pct.toFixed(1)+'%';$('#goalFill').style.background=color;
+  $('#goalNow').textContent=fmt1(current)+' kg';
+  $('#goalStartLbl').textContent='Inicio '+fmt1(start);$('#goalTargetLbl').textContent=fmt1(target)+' Meta';
+  const rem=current-target;
+  $('#goalTakeaway').innerHTML= rem<=0
+    ? `<b>¡Meta alcanzada!</b> Estás en ${fmt1(current)} kg. El reto ahora es <b>mantener</b>.`
+    : `Llevas <b>${fmt1(Math.max(0,done))} kg</b> de ${fmt1(total)} (${pct.toFixed(0)}%). Faltan <b>${fmt1(rem)} kg</b>.`;
+}
+
+function renderTodayList(entries){
+  const today=todayISO();
+  const list=entries.filter(e=>e.date===today).sort((a,b)=>(a.time||'')<(b.time||'')?-1:1);
+  $('#todayCount').textContent=list.length?`${list.length} hoy`:'';
+  const bw=$('#todayBannerWrap'), tl=$('#todayList');
+  if(!list.length){bw.innerHTML='';tl.innerHTML='<div class="empty">Aún no registras hoy.<br>Anota tu peso arriba ☝️</div>';return;}
+  const ws=list.filter(e=>e.weight!=null).map(e=>e.weight);
+  const avg=mean(ws), mn=Math.min(...ws), mx=Math.max(...ws);
+  const range=ws.length>1?` · rango ${fmt1(mn)}–${fmt1(mx)}`:'';
+  bw.innerHTML=`<div class="today-banner"><div class="tb-main">Promedio de hoy: ${fmt1(avg)} kg</div><div class="tb-sub">${ws.length} medición(es)${range}</div></div>`;
+  tl.innerHTML=list.map(e=>entryRowHTML(e)).join('');
+  tl.querySelectorAll('[data-eid]').forEach(r=>r.addEventListener('click',()=>openEntryModal(r.getAttribute('data-eid'))));
+}
+
+function entryRowHTML(e){
+  const p=periodOf(e.time);
+  const waist=e.waist!=null?`<span class="chip">📏 ${fmt1(e.waist)}</span>`:'';
+  const note=e.note?`<span style="opacity:.85">“${e.note}”</span>`:'';
+  return `<div class="entry-row" data-eid="${e.id}">
+    <div class="entry-time">${e.time||'--:--'}</div>
+    <div class="entry-mid">
+      <div class="entry-w">${fmt1(e.weight)} <small style="font-weight:600;color:var(--ink-soft);font-size:11px">kg</small></div>
+      <div class="entry-meta"><span class="chip dot" style="color:${p.color}">${p.label}</span>${waist}${note}</div>
+    </div>
+    <div class="entry-arrow">›</div>
+  </div>`;
+}
+
+/* ============================================================ ANÁLISIS ============================================================ */
+function inRange(iso){
+  if(currentRange==='all')return true;
+  const c=new Date();c.setDate(c.getDate()-Number(currentRange));
+  return iso>=c.toISOString().slice(0,10);
+}
+function renderAnalisis(){
+  const entries=Store.getEntries(), s=Store.getSettings();
+  renderWeightChart(entries,s);
+  renderWaistChart(entries);
+  renderPeriodChart(entries);
+  renderWeekdayChart(entries);
+  renderEvLegend();
+}
+
+function eventAnnotations(){
+  if(!(window.Chart&&Chart.registry&&Chart.registry.plugins.get('annotation')))return {};
+  const ann={};
+  Store.getEvents().forEach((ev,i)=>{
+    const c=(CATMAP[ev.category]||CATMAP.otro).color;
+    const end=ev.end||ev.start;
+    ann['ev'+i]={type:'box',xMin:ev.start+'T00:00',xMax:end+'T23:59',
+      backgroundColor:hexA(c,.09),borderColor:hexA(c,.28),borderWidth:1,
+      label:{display:false},drawTime:'beforeDatasetsDraw'};
+  });
+  return ann;
+}
+function renderEvLegend(){
+  const evs=Store.getEvents().filter(ev=>inRange(ev.end||ev.start)||inRange(ev.start));
+  const used={};evs.forEach(ev=>{const c=CATMAP[ev.category]||CATMAP.otro;used[c.id]=c;});
+  const keys=Object.keys(used);
+  $('#evLegend').innerHTML=keys.length?('<span class="mini-note" style="width:100%;margin-bottom:2px">Eventos en el periodo:</span>'+keys.map(k=>`<span class="chip dot" style="color:${used[k].color}">${used[k].label}</span>`).join('')):'';
+}
+
+function renderWeightChart(entries,s){
+  const daily=dailyAgg(entries).filter(d=>inRange(d.date));
+  const raw=entries.filter(e=>e.weight!=null&&inRange(e.date)).map(e=>({x:e.date+'T'+(e.time||'00:00'),y:e.weight}));
+  const serie=dailySeries(daily,currentMetric);
+  const ma=movingAvg(serie.map(p=>p.y),7).map((y,i)=>({x:serie[i].x,y}));
+  setWeightTakeaway(daily,s);
+
+  const ds=[
+    {label:'Cada medición',data:raw,showLine:false,pointRadius:2.4,pointHoverRadius:5,backgroundColor:'rgba(148,163,184,.55)',borderColor:'rgba(148,163,184,.55)',order:3,parsing:false},
+    {label:'Tendencia (7d)',data:ma,borderColor:'#2563eb',backgroundColor:'#2563eb',borderWidth:3,pointRadius:0,tension:.3,order:1,parsing:false,spanGaps:true},
+  ];
+  if(s.target!=null&&serie.length)ds.push({label:'Meta',data:serie.map(p=>({x:p.x,y:s.target})),borderColor:'#16a34a',borderWidth:2,borderDash:[6,5],pointRadius:0,tension:0,order:2,parsing:false});
+  if(s.alert!=null&&serie.length)ds.push({label:'Alerta',data:serie.map(p=>({x:p.x,y:s.alert})),borderColor:'#dc2626',borderWidth:1.5,borderDash:[2,4],pointRadius:0,tension:0,order:2,parsing:false});
+
+  const opts=timeLineOptions();
+  opts.plugins.annotation={annotations:eventAnnotations()};
+  opts.plugins.tooltip.callbacks={
+    title:items=>{if(!items.length)return'';const x=items[0].raw.x;const[d,t]=x.split('T');return prettyDate(d)+(t?(' · '+t):'');},
+    label:it=>`${it.dataset.label}: ${fmt1(it.raw.y)} kg`
+  };
+  if(weightChart)weightChart.destroy();
+  if(!serie.length&&!raw.length){emptyCanvas('weightChart');return;}
+  weightChart=new Chart($('#weightChart'),{type:'line',data:{datasets:ds},options:opts});
+}
+function setWeightTakeaway(daily,s){
+  const el=$('#weightTakeaway');
+  if(daily.length<2){el.innerHTML='Registra al menos dos días para ver tu tendencia.';return;}
+  const first=daily[0].avg,last=daily[daily.length-1].avg,diff=last-first;
+  const dir=diff<-0.05?'bajaste':diff>0.05?'subiste':'mantuviste';
+  const cls=diff<-0.05?'var(--good)':diff>0.05?'var(--bad)':'var(--ink)';
+  const rt=currentRange==='all'?'todo el periodo':`los últimos ${currentRange} días`;
+  let ex='';if(s.target!=null){const g=last-s.target;ex=g<=0?' Estás <b>en o bajo tu meta</b>.':` A <b>${fmt1(g)} kg</b> de la meta.`;}
+  el.innerHTML=`<b style="color:#2563eb">Línea azul</b> = tendencia real (filtra el ruido diario). En ${rt} <b style="color:${cls}">${dir} ${fmt1(Math.abs(diff))} kg</b>.${ex}`;
+}
+
+function renderWaistChart(entries){
+  const daily={};entries.forEach(e=>{if(e.waist!=null&&inRange(e.date)){(daily[e.date]=daily[e.date]||[]).push(e.waist);}});
+  const dates=Object.keys(daily).sort();
+  const data=dates.map(d=>({x:d,y:mean(daily[d])}));
+  const el=$('#waistTakeaway');
+  if(data.length>=2){const diff=data[data.length-1].y-data[0].y;const dir=diff<-0.05?'redujiste':diff>0.05?'aumentaste':'mantuviste';const cls=diff<-0.05?'var(--good)':diff>0.05?'var(--bad)':'var(--ink)';el.innerHTML=`Cintura: <b style="color:${cls}">${dir} ${fmt1(Math.abs(diff))} cm</b>. Buen proxy de grasa visceral.`;}
+  else el.innerHTML='Registra tu abdomen para seguir la grasa visceral, no solo el peso.';
+  const opts=timeLineOptions();
+  opts.plugins.tooltip.callbacks={title:items=>items.length?prettyDate(items[0].raw.x):'',label:it=>`Abdomen: ${fmt1(it.raw.y)} cm`};
+  if(waistChart)waistChart.destroy();
+  if(!data.length){emptyCanvas('waistChart');return;}
+  waistChart=new Chart($('#waistChart'),{type:'line',data:{datasets:[{label:'Abdomen',data,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.10)',borderWidth:2.5,fill:true,pointRadius:data.length>40?0:2.4,pointHoverRadius:5,tension:.3,parsing:false}]},options:opts});
+}
+
+function renderPeriodChart(entries){
+  const groups={man:[],tar:[],noc:[]};
+  entries.filter(e=>e.weight!=null&&inRange(e.date)).forEach(e=>{groups[periodOf(e.time).id].push(e.weight);});
+  const labels=['Mañana','Tarde','Noche'];
+  const ids=['man','tar','noc'];
+  const colors=['#f59e0b','#0ea5e9','#6366f1'];
+  const vals=ids.map(id=>mean(groups[id]));
+  const counts=ids.map(id=>groups[id].length);
+  if(periodChart)periodChart.destroy();
+  if(vals.every(v=>v==null)){emptyCanvas('periodChart');$('#periodInsight').innerHTML='';return;}
+  const present=vals.filter(v=>v!=null);
+  const ymin=Math.min(...present)-0.5, ymax=Math.max(...present)+0.5;
+  periodChart=new Chart($('#periodChart'),{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:colors.map(c=>hexA(c,.85)),borderRadius:8,maxBarThickness:70}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:it=>`${fmt1(it.raw)} kg · ${counts[it.dataIndex]} med.`}}},
+    scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#64748b',font:{size:12,weight:'700'}}},y:{min:ymin,max:ymax,grid:{color:'#eef2f7'},border:{display:false},ticks:{color:'#94a3b8',font:{size:11}}}}}});
+  // Insight
+  const named=ids.map((id,i)=>({label:labels[i],v:vals[i]})).filter(o=>o.v!=null);
+  if(named.length>=2){
+    named.sort((a,b)=>a.v-b.v);
+    const lo=named[0],hi=named[named.length-1],diff=hi.v-lo.v;
+    $('#periodInsight').innerHTML=`<div class="insight"><span class="ic">🕒</span><div class="it">Pesas en promedio <b>${fmt1(diff)} kg más</b> en la <b>${hi.label}</b> que en la <b>${lo.label}</b>. ${diff>0.4?'Para comparar manzanas con manzanas, mídete siempre en la misma franja — idealmente en ayunas por la mañana.':'Tu peso es bastante estable a lo largo del día.'}</div></div>`;
+  } else $('#periodInsight').innerHTML='<div class="insight"><span class="ic">🕒</span><div class="it">Registra en distintas franjas para descubrir tu patrón horario.</div></div>';
+}
+
+function renderWeekdayChart(entries){
+  const withW=entries.filter(e=>e.weight!=null&&inRange(e.date));
+  const overall=mean(withW.map(e=>e.weight));
+  const g=[[],[],[],[],[],[],[]];
+  withW.forEach(e=>{g[dObj(e.date).getDay()].push(e.weight);});
+  const order=[1,2,3,4,5,6,0]; // Lun..Dom
+  const labels=order.map(i=>DOW[i]);
+  const diffs=order.map(i=>{const m=mean(g[i]);return m==null||overall==null?null:m-overall;});
+  if(weekdayChart)weekdayChart.destroy();
+  if(overall==null||diffs.every(v=>v==null)){emptyCanvas('weekdayChart');$('#weekdayInsight').innerHTML='';return;}
+  weekdayChart=new Chart($('#weekdayChart'),{type:'bar',data:{labels,datasets:[{data:diffs.map(v=>v==null?0:v),backgroundColor:diffs.map(v=>v==null?'#e5e9f0':v>0.05?hexA('#dc2626',.8):v<-0.05?hexA('#16a34a',.8):hexA('#94a3b8',.7)),borderRadius:6,maxBarThickness:42}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:it=>{const v=diffs[it.dataIndex];return v==null?'sin datos':`${fmtSign(v)} kg vs tu promedio`;}}}},
+    scales:{x:{grid:{display:false},border:{display:false},ticks:{color:'#64748b',font:{size:11,weight:'700'}}},y:{grid:{color:'#eef2f7'},border:{display:false},ticks:{color:'#94a3b8',font:{size:10},callback:v=>fmtSign(v)}}}}});
+  const named=order.map((i,k)=>({label:DOW[i],v:diffs[k]})).filter(o=>o.v!=null);
+  if(named.length>=2){named.sort((a,b)=>a.v-b.v);const hi=named[named.length-1];$('#weekdayInsight').innerHTML=`<div class="insight"><span class="ic">📅</span><div class="it">Tu día más pesado es el <b>${hi.label}</b> (${fmtSign(hi.v)} kg vs tu promedio). ${hi.label==='Sáb'||hi.label==='Dom'||hi.label==='Lun'?'Clásico efecto fin de semana: los excesos del sábado/domingo se ven el lunes.':'Identifica qué hábito lo explica y márcalo como evento.'}</div></div>`;}
+  else $('#weekdayInsight').innerHTML='';
+}
+
+function timeLineOptions(){
+  return{responsive:true,maintainAspectRatio:false,interaction:{intersect:false,mode:'nearest',axis:'x'},
+    plugins:{legend:{display:true,position:'bottom',labels:{usePointStyle:true,pointStyle:'line',boxWidth:22,font:{size:10.5},color:'#64748b',padding:12}},
+      tooltip:{backgroundColor:'#1e293b',padding:10,cornerRadius:8,titleFont:{size:11.5},bodyFont:{size:13}}},
+    scales:{x:{type:'time',time:{unit:false},grid:{display:false},border:{display:false},
+        ticks:{color:'#94a3b8',font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:6,callback:function(v){const d=new Date(v);return pad(d.getDate())+'/'+pad(d.getMonth()+1);}}},
+      y:{grid:{color:'#eef2f7'},border:{display:false},ticks:{color:'#94a3b8',font:{size:11},padding:6}}}};
+}
+function emptyCanvas(id){const c=$('#'+id);if(!c)return;const ctx=c.getContext('2d');const dpr=window.devicePixelRatio||1;ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#94a3b8';ctx.font='13px -apple-system,sans-serif';ctx.textAlign='center';ctx.fillText('Aún sin datos en este rango',c.width/dpr/2,60);}
+
+/* ============================================================ EVENTOS ============================================================ */
+function renderEventos(){
+  const evs=Store.getEvents();
+  const wrap=$('#eventsList');
+  if(!evs.length){wrap.innerHTML='<div class="empty">Sin eventos registrados.<br>Marca tu primer contexto con ＋ arriba.</div>';return;}
+  const entriesW=Store.getEntries().filter(e=>e.weight!=null);
+  wrap.innerHTML=evs.map(ev=>{
+    const c=CATMAP[ev.category]||CATMAP.otro;
+    const range=ev.end&&ev.end!==ev.start?`${shortDate(ev.start)} → ${shortDate(ev.end)}`:prettyDate(ev.start);
+    const imp=eventImpact(ev,entriesW);
+    return `<div class="event-card" data-evid="${ev.id}" style="cursor:pointer">
+      <div class="ev-bar" style="background:${c.color}"></div>
+      <div class="ev-head"><div class="ev-title"><span class="chip dot" style="color:${c.color}">${c.label}</span>${ev.label?`<span>${ev.label}</span>`:''}</div><span class="entry-arrow">›</span></div>
+      <div class="ev-range">${range}</div>
+      ${ev.note?`<div class="ev-note">${ev.note}</div>`:''}
+      <div class="ev-impact"><span class="mini-note">Impacto en el peso:</span> <span class="pill ${imp.cls}">${imp.text}</span></div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-evid]').forEach(c=>c.addEventListener('click',()=>openEventModal(c.getAttribute('data-evid'))));
+}
+function eventImpact(ev,entriesW){
+  const end=ev.end||ev.start;
+  const inWin=entriesW.filter(e=>e.date>=ev.start&&e.date<=end);
+  if(!inWin.length)return{text:'sin mediciones',cls:'flat'};
+  const pre=dObj(ev.start);pre.setDate(pre.getDate()-7);
+  const preIso=pre.toISOString().slice(0,10);
+  const base=entriesW.filter(e=>e.date>=preIso&&e.date<ev.start);
+  const avgIn=mean(inWin.map(e=>e.weight));
+  if(!base.length)return{text:`${fmt1(avgIn)} kg prom.`,cls:'flat'};
+  const d=avgIn-mean(base.map(e=>e.weight));
+  if(d>0.1)return{text:`▲ ${fmt1(d)} kg`,cls:'bad'};
+  if(d<-0.1)return{text:`▼ ${fmt1(Math.abs(d))} kg`,cls:'good'};
+  return{text:'sin cambio',cls:'flat'};
+}
+
+/* ============================================================ HISTORIAL ============================================================ */
+function renderHistorial(){
+  const entries=Store.getEntries();
+  $('#histCount').textContent=entries.length?`${entries.length} registros`:'';
+  const wrap=$('#historyList');
+  if(!entries.length){wrap.innerHTML='<div class="empty">Aún no hay registros.</div>';return;}
+  const byDate={};entries.forEach(e=>{(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const dates=Object.keys(byDate).sort().reverse();
+  wrap.innerHTML=dates.map(date=>{
+    const arr=byDate[date].slice().sort((a,b)=>(a.time||'')<(b.time||'')?1:-1);
+    const ws=arr.filter(e=>e.weight!=null).map(e=>e.weight);
+    const sum=ws.length?`${ws.length} med · prom ${fmt1(mean(ws))}${ws.length>1?` · ${fmt1(Math.min(...ws))}–${fmt1(Math.max(...ws))}`:''}`:'';
+    return `<div class="day-group"><div class="day-head"><span class="dh-date">${prettyDate(date)}</span><span class="dh-sum">${sum}</span></div>${arr.map(e=>entryRowHTML(e)).join('')}</div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-eid]').forEach(r=>r.addEventListener('click',()=>openEntryModal(r.getAttribute('data-eid'))));
+}
+
+/* ============================================================ NAV / TABS ============================================================ */
+function switchTab(name){
+  currentTab=name;
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.toggle('active',s.id==='tab-'+name));
+  document.querySelectorAll('#bottomNav button').forEach(b=>b.classList.toggle('active',b.getAttribute('data-tab')===name));
+  renderTab(name);
+  window.scrollTo({top:0,behavior:'instant'});
+}
+function renderTab(name){
+  if(name==='inicio')renderInicio();
+  else if(name==='analisis')renderAnalisis();
+  else if(name==='eventos')renderEventos();
+  else if(name==='historial')renderHistorial();
+}
+function refresh(){renderInicio();renderTab(currentTab);}
+
+/* ============================================================ EVENTOS UI ============================================================ */
+$('#bottomNav').addEventListener('click',e=>{const b=e.target.closest('button');if(b)switchTab(b.getAttribute('data-tab'));});
+
+// Quick add
+// Fecha/hora SIEMPRE automáticas. Solo se usan los campos manuales si abres "ajustar".
+function manualOn(){return $('#qaExtra').classList.contains('show')&&$('#inDate').value&&$('#inTime').value;}
+function effectiveDateTime(){return manualOn()?{date:$('#inDate').value,time:$('#inTime').value}:nowParts();}
+function updateStamp(){
+  const dt=effectiveDateTime();
+  const lbl=dt.date===todayISO()?'hoy':shortDate(dt.date);
+  $('#qaStamp').innerHTML=`🕒 ${manualOn()?'Se guardará en':'Se registra solo:'} <b>${lbl} · ${dt.time}</b>`;
+  $('#qaNow').textContent=prettyDate(todayISO());
+}
+$('#btnMore').addEventListener('click',()=>{
+  const ex=$('#qaExtra'),opening=!ex.classList.contains('show');
+  ex.classList.toggle('show');
+  if(opening){const n=nowParts();if(!$('#inDate').value)$('#inDate').value=n.date;if(!$('#inTime').value)$('#inTime').value=n.time;}
+  updateStamp();
+});
+$('#inDate').addEventListener('change',updateStamp);
+$('#inTime').addEventListener('change',updateStamp);
+// Mantener el reloj fresco si la app queda abierta (sin sobrescribir un ajuste manual)
+setInterval(()=>{if(!manualOn())updateStamp();},20000);
+$('#btnSave').addEventListener('click',()=>{
+  const w=parseFloat($('#inWeight').value);
+  const waistRaw=$('#inWaist').value.trim();
+  const waist=waistRaw===''?null:parseFloat(waistRaw);
+  if(isNaN(w)){$('#qaHint').textContent='Ingresa al menos tu peso.';$('#inWeight').focus();return;}
+  if(w<=0||w>400){$('#qaHint').textContent='Revisa el peso ingresado.';return;}
+  const dt=effectiveDateTime(); // sello automático en el instante de guardar
+  Store.addEntry({date:dt.date,time:dt.time,weight:Math.round(w*10)/10,waist:(waist!=null&&!isNaN(waist))?Math.round(waist*10)/10:null,note:$('#inNote').value.trim(),ts:Date.now()});
+  $('#inWeight').value='';$('#inWaist').value='';$('#inNote').value='';
+  $('#inDate').value='';$('#inTime').value='';$('#qaExtra').classList.remove('show');
+  updateStamp();refresh();toast('✓ Medición guardada');
+  $('#qaHint').textContent='¡Hecho! Pequeño paso, gran interés compuesto.';
+});
+$('#inWeight').addEventListener('keydown',e=>{if(e.key==='Enter')$('#inWaist').focus();});
+$('#inWaist').addEventListener('keydown',e=>{if(e.key==='Enter')$('#btnSave').click();});
+
+// Range + metric
+$('#rangeSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('#rangeSeg').querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');const r=b.getAttribute('data-range');currentRange=r==='all'?'all':Number(r);renderAnalisis();});
+$('#metricSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;$('#metricSeg').querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');currentMetric=b.getAttribute('data-metric');renderWeightChart(Store.getEntries(),Store.getSettings());});
+
+// Entry modal
+function openEntryModal(id){
+  const e=Store.getEntries().find(x=>x.id===id);if(!e)return;
+  editingEntryId=id;
+  $('#emWeight').value=e.weight??'';$('#emWaist').value=e.waist??'';$('#emDate').value=e.date;$('#emTime').value=e.time||'';$('#emNote').value=e.note||'';
+  $('#entryModal').classList.add('open');
+}
+function closeEntryModal(){$('#entryModal').classList.remove('open');editingEntryId=null;}
+$('#btnSaveEntry').addEventListener('click',()=>{
+  const w=parseFloat($('#emWeight').value);if(isNaN(w)){toast('Peso inválido');return;}
+  const waist=$('#emWaist').value.trim()===''?null:parseFloat($('#emWaist').value);
+  Store.updateEntry(editingEntryId,{weight:Math.round(w*10)/10,waist:(waist!=null&&!isNaN(waist))?Math.round(waist*10)/10:null,date:$('#emDate').value,time:$('#emTime').value,note:$('#emNote').value.trim()});
+  closeEntryModal();refresh();toast('Medición actualizada');
+});
+$('#btnDeleteEntry').addEventListener('click',()=>{if(confirm('¿Eliminar esta medición?')){Store.deleteEntry(editingEntryId);closeEntryModal();refresh();toast('Medición eliminada');}});
+$('#btnCancelEntry').addEventListener('click',closeEntryModal);
+$('#entryModal').addEventListener('click',e=>{if(e.target.id==='entryModal')closeEntryModal();});
+
+// Event modal
+function fillCatSelect(){$('#evCat').innerHTML=CATS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');}
+function openEventModal(id){
+  fillCatSelect();
+  if(id){
+    const ev=Store.getEvents().find(x=>x.id===id);if(!ev)return;
+    editingEventId=id;$('#eventModalTitle').textContent='Editar evento';
+    $('#evLabel').value=ev.label||'';$('#evCat').value=ev.category||'otro';$('#evStart').value=ev.start;$('#evEnd').value=ev.end||'';$('#evNote').value=ev.note||'';
+    $('#btnDeleteEvent').style.display='block';
+  }else{
+    editingEventId=null;$('#eventModalTitle').textContent='Registrar evento';
+    $('#evLabel').value='';$('#evCat').value='exceso';$('#evStart').value=todayISO();$('#evEnd').value='';$('#evNote').value='';
+    $('#btnDeleteEvent').style.display='none';
+  }
+  $('#eventModal').classList.add('open');
+}
+function closeEventModal(){$('#eventModal').classList.remove('open');editingEventId=null;}
+$('#btnAddEvent').addEventListener('click',()=>openEventModal(null));
+$('#btnSaveEvent').addEventListener('click',()=>{
+  const start=$('#evStart').value;if(!start){toast('Indica la fecha de inicio');return;}
+  let end=$('#evEnd').value||null;if(end&&end<start){const t=end;end=start;$('#evStart').value=t;}
+  const data={label:$('#evLabel').value.trim(),category:$('#evCat').value,start,end,note:$('#evNote').value.trim(),ts:Date.now()};
+  if(editingEventId)Store.updateEvent(editingEventId,data);else Store.addEvent(data);
+  closeEventModal();refresh();toast('Evento guardado');
+});
+$('#btnDeleteEvent').addEventListener('click',()=>{if(confirm('¿Eliminar este evento?')){Store.deleteEvent(editingEventId);closeEventModal();refresh();toast('Evento eliminado');}});
+$('#btnCancelEvent').addEventListener('click',closeEventModal);
+$('#eventModal').addEventListener('click',e=>{if(e.target.id==='eventModal')closeEventModal();});
+
+// Settings
+function buildLink(){return location.origin+location.pathname+'#k='+Store.spaceKey();}
+function updateSyncBadge(){
+  const st=Store.status(), b=$('#syncBadge'), t=$('#syncText');
+  if(b)b.className='sync-badge '+st;
+  if(t)t.textContent= st==='synced'?'Activa · tus datos están en tu nube (Supabase).': st==='offline'?'Sin conexión · se sincroniza al volver la señal.':'Solo este equipo (conectando…).';
+}
+function openSettings(){const s=Store.getSettings();$('#setStart').value=s.start??'';$('#setTarget').value=s.target??'';$('#setHeight').value=s.height??'';$('#setAlert').value=s.alert??'';$('#spaceLink').value=buildLink();updateSyncBadge();$('#settingsModal').classList.add('open');}
+function closeSettings(){$('#settingsModal').classList.remove('open');}
+$('#openSettings').addEventListener('click',openSettings);
+$('#btnCloseSettings').addEventListener('click',closeSettings);
+$('#settingsModal').addEventListener('click',e=>{if(e.target.id==='settingsModal')closeSettings();});
+$('#btnSaveSettings').addEventListener('click',()=>{const num=v=>{const n=parseFloat(v);return isNaN(n)?null:n;};Store.saveSettings({start:num($('#setStart').value),target:num($('#setTarget').value),height:num($('#setHeight').value),alert:num($('#setAlert').value)});closeSettings();refresh();toast('Ajustes guardados');});
+$('#btnExport').addEventListener('click',()=>{const data=Store.exportAll();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='peso-tracker-'+todayISO()+'.json';a.click();URL.revokeObjectURL(url);toast('Respaldo exportado');});
+$('#btnImport').addEventListener('click',()=>$('#importFile').click());
+$('#importFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{Store.importAll(JSON.parse(ev.target.result));openSettings();refresh();toast('Datos importados');}catch(err){toast('Archivo inválido');}};r.readAsText(f);e.target.value='';});
+$('#btnReset').addEventListener('click',()=>{if(confirm('Esto borra TODOS tus datos (local y nube). ¿Continuar?')){Store.clearAll();closeSettings();refresh();toast('Todo borrado');}});
+$('#btnCopyLink').addEventListener('click',()=>{const v=buildLink();$('#spaceLink').value=v;try{navigator.clipboard&&navigator.clipboard.writeText(v);}catch(e){}$('#spaceLink').select&&$('#spaceLink').select();toast('Link copiado');});
+$('#btnSyncNow').addEventListener('click',async()=>{toast('Sincronizando…');await Store.sync();updateSyncBadge();refresh();toast('Sincronizado');});
+
+/* ============================================================ INIT ============================================================ */
+(function init(){
+  if(window.Chart){
+    try{const ann=window['chartjs-plugin-annotation'];if(ann)Chart.register(ann);}catch(e){}
+    Chart.defaults.font.family='-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif';
+    Chart.defaults.color='#64748b';
+  }
+  updateStamp();
+  // Cloud: re-render cuando termine la sincronización (sin tocar las funciones de render)
+  Store.setOnChange(()=>{updateSyncBadge();try{renderInicio();renderTab(currentTab);}catch(e){}});
+  renderInicio();
+  updateSyncBadge();
+  Store.sync().then(updateSyncBadge);
+  // Mantener fresco entre dispositivos
+  window.addEventListener('focus',()=>{Store.sync();});
+  window.addEventListener('online',()=>{Store.sync();});
+})();
+</script>
+</body>
+</html>
