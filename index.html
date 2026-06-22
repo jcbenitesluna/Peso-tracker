@@ -359,7 +359,7 @@
     </div>
   </section>
 
-  <p class="footer-note">Datos guardados en este dispositivo · listo para conectar a Supabase</p>
+  <p class="footer-note">Sincronizado en tu nube (Supabase) · funciona en todos tus dispositivos</p>
 </div>
 
 <!-- ============ BOTTOM NAV ============ -->
@@ -385,7 +385,7 @@
     </div>
     <div class="divider"></div>
     <p class="mini-note" style="margin-bottom:8px"><b>Sincronización en la nube.</b> <span id="syncText">—</span></p>
-    <div class="field"><label>Tu link privado — ábrelo en el celular para ver los mismos datos</label><input id="spaceLink" type="text" readonly onclick="this.select()" /><div class="hint">Incluye tu clave de espacio (#k). Trátalo como una contraseña: quien tenga este link ve y edita tus datos.</div></div>
+    <div class="field"><label>Tu link — ábrelo en cualquier dispositivo</label><input id="spaceLink" type="text" readonly onclick="this.select()" /><div class="hint">La misma URL funciona en Mac y celular y muestra tus datos. Es un espacio público: cualquiera con este link puede ver y editar.</div></div>
     <div class="modal-actions"><button class="btn btn-ghost" id="btnCopyLink">Copiar link</button><button class="btn btn-ghost" id="btnSyncNow">Sincronizar ahora</button></div>
 
     <div class="divider"></div>
@@ -464,11 +464,13 @@ const Store = (() => {
   const _wr=(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}};
 
   // ---- Clave de espacio (capability key) ----
+  // Espacio compartido fijo: la URL normal funciona en cualquier dispositivo (Mac y celular)
+  // sin login ni hash. Se puede sobreescribir con #k=<otro> si algún día quieres un espacio aparte.
+  const FIXED_SPACE='b4ab605f18254e15bb42c16bdf709c3c';
   function resolveSpace(){
     const m=(location.hash||'').match(/[#&]k=([A-Za-z0-9_\-]+)/);
-    let k=m?m[1]:null;
-    if(k)_wr(SPK,k); else k=_raw(SPK);
-    if(!k){ k=uid().replace(/-/g,''); _wr(SPK,k); }
+    const k = m ? m[1] : FIXED_SPACE;
+    _wr(SPK,k);
     return k;
   }
   const SPACE=resolveSpace();
@@ -1019,7 +1021,7 @@ $('#btnCancelEvent').addEventListener('click',closeEventModal);
 $('#eventModal').addEventListener('click',e=>{if(e.target.id==='eventModal')closeEventModal();});
 
 // Settings
-function buildLink(){return location.origin+location.pathname+'#k='+Store.spaceKey();}
+function buildLink(){return location.origin+location.pathname;}
 function updateSyncBadge(){
   const st=Store.status(), b=$('#syncBadge'), t=$('#syncText');
   if(b)b.className='sync-badge '+st;
