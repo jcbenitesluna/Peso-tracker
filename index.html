@@ -1056,7 +1056,6 @@ $('#btnSyncNow').addEventListener('click',async()=>{toast('Sincronizando…');aw
   // Mantener fresco entre dispositivos
   window.addEventListener('focus',()=>{Store.sync();});
   window.addEventListener('online',()=>{Store.sync();});
-    document.querySelectorAll('[data-chart-range]').forEach(btn=>btn.addEventListener('click',e=>{currentRange=e.target.dataset.chartRange;document.querySelectorAll('[data-chart-range]').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');renderAnalisis();}));document.querySelectorAll('[data-weight-metric]').forEach(btn=>btn.addEventListener('click',e=>{currentMetric=e.target.dataset.weightMetric;document.querySelectorAll('[data-weight-metric]').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');renderAnalisis();}));
 })();
 </script>
 </body>
