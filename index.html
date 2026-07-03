@@ -535,7 +535,7 @@ const Store = (() => {
     try{
       const [e,v,s]=await Promise.all([
         sb.from('weight_entries').select('*'),
-        sb.from('weight_entries').select('*'),
+        sb.from('weight_events').select('*'),
         sb.from('weight_settings').select('*').maybeSingle()
       ]);
       if(e.error||v.error) throw (e.error||v.error);
@@ -550,7 +550,7 @@ const Store = (() => {
     if(!sb){ lastStatus='local'; if(onChange)onChange(); return; }
     if(!_raw(MGK)){ // primera vez en este espacio: empuja lo local al cloud
       cache.entries.forEach(e=>queue.push({op:'upsert',table:'weight_entries',row:eToDb(e)}));
-      cache.events.forEach(v=>queue.push({op:'upsert',table:'weight_entries',row:vToDb(v)}));
+      cache.events.forEach(v=>queue.push({op:'upsert',table:'weight_events',row:vToDb(v)}));
       if(Object.values(cache.settings).some(x=>x!=null)) queue.push({op:'upsert_settings',row:sToDb(cache.settings)});
       saveQueue(); _wr(MGK,'1');
     }
@@ -565,9 +565,9 @@ const Store = (() => {
   function deleteEntry(id){cache.entries=cache.entries.filter(x=>x.id!==id);persist();enqueue({op:'delete',table:'weight_entries',id});}
 
   function getEvents(){return cache.events.slice().sort((a,b)=> a.start<b.start?1:a.start>b.start?-1:0);}
-  function addEvent(ev){ev.id=ev.id||uid();cache.events.push(ev);persist();enqueue({op:'upsert',table:'weight_entries',row:vToDb(ev)});return ev;}
-  function updateEvent(id,patch){const i=cache.events.findIndex(x=>x.id===id);if(i>=0){cache.events[i]={...cache.events[i],...patch};persist();enqueue({op:'upsert',table:'weight_entries',row:vToDb(cache.events[i])});}return cache.events[i];}
-  function deleteEvent(id){cache.events=cache.events.filter(x=>x.id!==id);persist();enqueue({op:'delete',table:'weight_entries',id});}
+  function addEvent(ev){ev.id=ev.id||uid();cache.events.push(ev);persist();enqueue({op:'upsert',table:'weight_events',row:vToDb(ev)});return ev;}
+  function updateEvent(id,patch){const i=cache.events.findIndex(x=>x.id===id);if(i>=0){cache.events[i]={...cache.events[i],...patch};persist();enqueue({op:'upsert',table:'weight_events',row:vToDb(cache.events[i])});}return cache.events[i];}
+  function deleteEvent(id){cache.events=cache.events.filter(x=>x.id!==id);persist();enqueue({op:'delete',table:'weight_events',id});}
 
   function getSettings(){return{...DEF_SET,...cache.settings};}
   function saveSettings(s){cache.settings={...DEF_SET,...s};persist();enqueue({op:'upsert_settings',row:sToDb(cache.settings)});return getSettings();}
@@ -579,11 +579,11 @@ const Store = (() => {
     if(o&&o.settings)cache.settings={...DEF_SET,...o.settings};
     persist();
     cache.entries.forEach(e=>queue.push({op:'upsert',table:'weight_entries',row:eToDb(e)}));
-    cache.events.forEach(v=>queue.push({op:'upsert',table:'weight_entries',row:vToDb(v)}));
+    cache.events.forEach(v=>queue.push({op:'upsert',table:'weight_events',row:vToDb(v)}));
     queue.push({op:'upsert_settings',row:sToDb(cache.settings)}); saveQueue(); flush();
   }
   function clearAll(){
-    if(sb){try{sb.from('weight_entries').delete().eq('space_key',SPACE);sb.from('weight_entries').delete().eq('space_key',SPACE);sb.from('weight_settings').delete().eq('space_key',SPACE);}catch(e){}}
+    if(sb){try{sb.from('weight_entries').delete().eq('space_key',SPACE);sb.from('weight_events').delete().eq('space_key',SPACE);sb.from('weight_settings').delete().eq('space_key',SPACE);}catch(e){}}
     cache={entries:[],events:[],settings:{...DEF_SET}};
     [EK,VK,SK,QK].forEach(k=>localStorage.removeItem(k)); queue=[];
   }
@@ -745,7 +745,7 @@ function renderAnalisis(){
 function eventAnnotations(){
   if(!(window.Chart&&Chart.registry&&Chart.registry.plugins.get('annotation')))return {};
   const ann={};
-  Store.getEvents().forEach((ev,i)=>{
+  Store.getEvents().forEach((ev,i)=>{ if(!ev||!ev.start||typeof ev.start!=='string'||!/^\d{4}-\d{2}-\d{2}/.test(ev.start))return;
     const c=(CATMAP[ev.category]||CATMAP.otro).color;
     const end=ev.end||ev.start;
     ann['ev'+i]={type:'box',xMin:ev.start+'T00:00',xMax:end+'T23:59',
