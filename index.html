@@ -778,7 +778,7 @@ function renderWeightChart(entries,s){
   const opts=timeLineOptions();
   opts.plugins.annotation={annotations:eventAnnotations()};
   opts.plugins.tooltip.callbacks={
-    title:items=>{if(!items.length)return'';const x=items[0].raw.x;const[d,t]=x.split('T');return prettyDate(d)+(t?(' · '+t):'');},
+    title:items=>{if(!items.length)return'';let x=items[0].raw.x;if(typeof x==='number')x=new Date(x).toISOString().slice(0,16);const[d,t]=String(x).split('T');return prettyDate(d)+(t?(' · '+t):'');},
     label:it=>`${it.dataset.label}: ${fmt1(it.raw.y)} kg`
   };
   ds.forEach(d=>{ if(Array.isArray(d.data)) d.data.forEach(p=>{ if(p&&typeof p.x==='string') p.x=new Date(p.x).getTime(); }); });
@@ -805,7 +805,8 @@ function renderWaistChart(entries){
   if(data.length>=2){const diff=data[data.length-1].y-data[0].y;const dir=diff<-0.05?'redujiste':diff>0.05?'aumentaste':'mantuviste';const cls=diff<-0.05?'var(--good)':diff>0.05?'var(--bad)':'var(--ink)';el.innerHTML=`Cintura: <b style="color:${cls}">${dir} ${fmt1(Math.abs(diff))} cm</b>. Buen proxy de grasa visceral.`;}
   else el.innerHTML='Registra tu abdomen para seguir la grasa visceral, no solo el peso.';
   const opts=timeLineOptions();
-  opts.plugins.tooltip.callbacks={title:items=>items.length?prettyDate(items[0].raw.x):'',label:it=>`Abdomen: ${fmt1(it.raw.y)} cm`};
+  opts.plugins.tooltip.callbacks={title:items=>{if(!items.length)return'';let x=items[0].raw.x;if(typeof x==='number')x=new Date(x).toISOString().slice(0,10);return prettyDate(String(x).split('T')[0]);},label:it=>`Abdomen: ${fmt1(it.raw.y)} cm`};
+  if(Array.isArray(data)) data.forEach(p=>{ if(p&&typeof p.x==='string') p.x=new Date(p.x).getTime(); });
   if(waistChart)waistChart.destroy();
   if(!data.length){emptyCanvas('waistChart');return;}
   waistChart=new Chart($('#waistChart'),{type:'line',data:{datasets:[{label:'Abdomen',data,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,.10)',borderWidth:2.5,fill:true,pointRadius:data.length>40?0:2.4,pointHoverRadius:5,tension:.3,parsing:false}]},options:opts});
