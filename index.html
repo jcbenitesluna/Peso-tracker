@@ -781,6 +781,7 @@ function renderWeightChart(entries,s){
     title:items=>{if(!items.length)return'';const x=items[0].raw.x;const[d,t]=x.split('T');return prettyDate(d)+(t?(' · '+t):'');},
     label:it=>`${it.dataset.label}: ${fmt1(it.raw.y)} kg`
   };
+  ds.forEach(d=>{ if(Array.isArray(d.data)) d.data.forEach(p=>{ if(p&&typeof p.x==='string') p.x=new Date(p.x).getTime(); }); });
   if(weightChart)weightChart.destroy();
   if(!serie.length&&!raw.length){emptyCanvas('weightChart');return;}
   weightChart=new Chart($('#weightChart'),{type:'line',data:{datasets:ds},options:opts});
